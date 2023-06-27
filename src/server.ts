@@ -24,7 +24,7 @@ async function fecharConexao() {
     console.log("TENTANDO FECHAR CONEXÃO...");
     conexao.close();
     conexao = null;
-    console.log("FECHAR CONEXÃO");
+    console.log("CONEXÃO ENCERRADA");
   }
 }
 
