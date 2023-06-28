@@ -52,33 +52,74 @@ async function rollback() {
   }
 }
 
-async function varificarExistenciaUF(sigla: string, nome: string) {
-  const listaUFs = [];
+async function verificarExistenciaUF(sigla: string, nome: string) {
   await abrirConexao();
-  let sql = "SELECT CODIGO_UF, SIGLA, NOME, STATUS FROM TB_UF";
-  sql += ` WHERE NOME='${nome}' AND SIGLA='${sigla}'`;
 
-  console.log("*****************SQL: ", sql);
+  const sqlNome = `SELECT CODIGO_UF, SIGLA, NOME, STATUS FROM TB_UF WHERE Nome='${nome}'`;
+  const sqlSigla = `SELECT CODIGO_UF, SIGLA, NOME, STATUS FROM TB_UF WHERE Sigla='${sigla}'`;
 
-  const resultado = await conexao.execute(sql);
-  let numeroLinha = 0;
-  let numeroColuna = 0;
-  const quantidadeResultados = resultado.rows.length;
+  const resultadoNome = await conexao.execute(sqlNome);
+  if (resultadoNome.rows.length > 0) {
+    console.log("*****************SQL - nome: ", sqlNome);
+    console.log(resultadoNome.rows);
 
-  while (numeroLinha < quantidadeResultados) {
-    const ufVo = {
-      codigoUF: resultado.rows[numeroLinha][numeroColuna++],
-      sigla: resultado.rows[numeroLinha][numeroColuna++],
-      nome: resultado.rows[numeroLinha][numeroColuna++],
-      status: resultado.rows[numeroLinha][numeroColuna++],
+    const jsonRetorno = {
+      status: 404,
+      mensagem: "Nome já existe no banco de dados",
     };
-    listaUFs.push(ufVo);
-    numeroLinha++;
-    numeroColuna = 0;
+    return jsonRetorno;
   }
-  await fecharConexao();
+  const resultadoSigla = await conexao.execute(sqlSigla);
+  console.log(resultadoSigla.rowsAffected, " linhas afetadas Sigla");
 
-  return listaUFs[0];
+  if (resultadoSigla.rows.length > 0) {
+    console.log("*****************SQL - sigla: ", sqlSigla);
+    console.log(resultadoSigla.rows);
+    const jsonRetorno = {
+      status: 404,
+      mensagem: "Sigla já existe no banco de dados.",
+    };
+    return jsonRetorno;
+  }
+
+  await fecharConexao();
+}
+
+async function camposObrigatoriosUF(ufVo: any, tipo: string) {
+  if (!ufVo.sigla) {
+    const jsonRetorno = {
+      status: 404,
+      mensagem: "Sigla é um campo obrigatorio.",
+    };
+    return jsonRetorno;
+  }
+
+  if (!ufVo.nome) {
+    const jsonRetorno = {
+      status: 404,
+      mensagem: "Nome é um campo obrigatorio.",
+    };
+    return jsonRetorno;
+  }
+  if (!ufVo.status) {
+    const jsonRetorno = {
+      status: 404,
+      mensagem: "Status é um campo obrigatorio.",
+    };
+    return jsonRetorno;
+  }
+  if (tipo == "put") {
+    console.log("Dentro do tipo: ", tipo);
+    console.log("Dentro do ufVo: ", ufVo);
+
+    if (!ufVo.codigoUF) {
+      const jsonRetorno = {
+        status: 404,
+        mensagem: "CodigoUF é um campo obrigatorio.",
+      };
+      return jsonRetorno;
+    }
+  }
 }
 //#endregion
 
@@ -162,6 +203,15 @@ async function adicionarUF(request: Request, response: Response) {
     //CAPTURAR OS DADOS QUE VIERAM DA REQUISIÇÃO (FORMATO JSON)
     const ufVo = request.body;
 
+    //verificar campos obrigatorios
+    const camposObrigatorios = await camposObrigatoriosUF(
+      ufVo,
+      "post",
+    );
+    if (camposObrigatorios) {
+      return response.status(404).json(camposObrigatorios);
+    }
+
     //VERIFICAR SE SIGLA TEM 2 CARACTERES
     if (ufVo.sigla.length != 2) {
       const jsonRetorno = {
@@ -191,7 +241,7 @@ async function adicionarUF(request: Request, response: Response) {
       };
       return response.status(404).json(jsonRetorno);
     }
-    
+
     //VERIFICAR VALOR DE STATUS
     if (!(ufVo.status == 1 || ufVo.status == 2)) {
       const jsonRetorno = {
@@ -202,16 +252,12 @@ async function adicionarUF(request: Request, response: Response) {
     }
 
     //VERIFICAR SE EXISTE REGISTRO COM MESMO VALOR NO BANCO
-    const itemDuplicado = await varificarExistenciaUF(
+    const itemDuplicado = await verificarExistenciaUF(
       ufVo.sigla,
       ufVo.nome,
     );
     if (itemDuplicado) {
-      const jsonRetorno = {
-        status: 400,
-        mensagem: "O item já existe no banco de dados.",
-      };
-      return response.status(400).json(jsonRetorno);
+      return response.status(400).json(itemDuplicado);
     }
 
     //ABRIR A CONEXÃO
@@ -246,6 +292,156 @@ async function adicionarUF(request: Request, response: Response) {
   }
 }
 //#endregion POST UF
+
+//#region PUT UF
+
+app.put("/uf", async (request, response) => {
+  return await alterarUF(request, response);
+});
+
+async function alterarUF(request: Request, response: Response) {
+  try {
+    const ufVo = request.body;
+
+    const camposObrigatorios = await camposObrigatoriosUF(
+      ufVo,
+      "put",
+    );
+    if (camposObrigatorios) {
+      return response.status(404).json(camposObrigatorios);
+    }
+    //VERIFICAR SE SIGLA TEM 2 CARACTERES
+    if (ufVo.sigla.length != 2) {
+      const jsonRetorno = {
+        status: 404,
+        mensagem: "Sigla deve conter 2 caracteres.",
+      };
+      return response.status(404).json(jsonRetorno);
+    }
+
+    //VERIFICAR SE SIGLA POSSUI NUMEROS
+    const regex = /^[A-Za-z\s]+$/;
+
+    if (!regex.test(ufVo.sigla)) {
+      const jsonRetorno = {
+        status: 404,
+        mensagem: "Sigla deve conter apenas letras.",
+      };
+      return response.status(404).json(jsonRetorno);
+    }
+
+    //VERIFICAR SE NOME POSSUI NUMEROS
+    if (!regex.test(ufVo.nome)) {
+      const jsonRetorno = {
+        status: 404,
+        mensagem: "Nome deve conter apenas letras.",
+      };
+      return response.status(404).json(jsonRetorno);
+    }
+
+    //VERIFICAR VALOR DE STATUS
+    if (!(ufVo.status == 1 || ufVo.status == 2)) {
+      const jsonRetorno = {
+        status: 400,
+        mensagem: "Valor inválido para o campo Status.",
+      };
+      return response.status(400).json(jsonRetorno);
+    }
+
+    //VERIFICAR SE EXISTE REGISTRO COM MESMO VALOR NO BANCO
+    const itemDuplicado = await verificarExistenciaUF(
+      ufVo.sigla,
+      ufVo.nome,
+    );
+    if (itemDuplicado) {
+      return response.status(400).json(itemDuplicado);
+    }
+
+    await abrirConexao();
+    const sql =
+      "UPDATE TB_UF SET NOME= :nome, SIGLA= :sigla, STATUS= :status WHERE CODIGO_UF= :codigoUF ";
+    const resultSet = await conexao.execute(sql, ufVo);
+
+    //row = 0 noa editou nada
+    if (resultSet.rowsAffected == 0) {
+      await rollback();
+      const jsonRetorno = {
+        status: 404,
+        mensagem: "Nenhum item encontrado com o codigoUF fornecido",
+      };
+      return response.status(404).json(jsonRetorno);
+    }
+    console.log(
+      "Foram alterados" +
+        resultSet.rowsAffected +
+        "registros no banco de dados",
+    );
+    await commit();
+    await consultarUF(request, response);
+  } catch (error) {
+    console.log(error);
+    await rollback();
+    const jsonRetorno = {
+      status: 404,
+      mensagem: "Não foi possível alterar UF no banco de dados.",
+    };
+    return response.status(404).json(jsonRetorno);
+  } finally {
+    await fecharConexao();
+  }
+}
+
+//#endregion
+
+//#region DELETE UF
+app.delete("/uf/:id", async (request, response) => {
+  return await deletarUF(request, response);
+});
+
+async function deletarUF(request: Request, response: Response) {
+  try {
+    const codigoUf = request.params.id;
+    if (typeof codigoUf != "number") {
+      const jsonRetorno = {
+        status: 404,
+        mensagem: "Parâmetro inválido",
+      };
+      return response.status(404).json(jsonRetorno);
+    }
+
+    await abrirConexao();
+    const sql = `DELETE FROM TB_UF WHERE CODIGO_UF= ${codigoUf} `;
+    const resultSet = await conexao.execute(sql);
+    //row = 0 noa editou nada
+    if (resultSet.rowsAffected == 0) {
+      await rollback();
+      const jsonRetorno = {
+        status: 404,
+        mensagem: "Nenhum item encontrado com o codigoUF fornecido",
+      };
+      return response.status(404).json(jsonRetorno);
+    }
+    console.log(
+      "Foram alterados" +
+        resultSet.rowsAffected +
+        "registros no banco de dados",
+    );
+    await commit();
+    await consultarUF(request, response);
+  } catch (error) {
+    console.log(error);
+    await rollback();
+    const jsonRetorno = {
+      status: 404,
+      mensagem: "Não foi possível excluir UF no banco de dados.",
+    };
+    return response.status(404).json(jsonRetorno);
+  } finally {
+    await fecharConexao();
+  }
+}
+
+//#endregion
 
 app.listen(3333, () => {
   console.log("O SERVIDOR FOI INICIADO COM SUCESSO..");
