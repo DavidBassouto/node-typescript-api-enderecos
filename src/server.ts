@@ -98,7 +98,31 @@ async function adicionarUF(request: Request, response: Response) {
 async function consultarUF(request: Request, response: Response) {
   const listaUFs = [];
   await abrirConexao();
-  const sql = "SELECT CODIGO_UF, SIGLA, NOME, STATUS FROM TB_UF";
+  let sql = "SELECT CODIGO_UF, SIGLA, NOME, STATUS FROM TB_UF";
+  const queryParams = [];
+  const queryKeys = ["codigoUF", "sigla", "nome", "status"];
+
+  for (let key of queryKeys) {
+    if (request.query[key]) {
+      if (key == "codigoUF") {
+        key = "codigo_uf";
+        queryParams.push(
+          `${key.toUpperCase()}= '${request.query["codigoUF"]}'`,
+        );
+      } else {
+        queryParams.push(
+          `${key.toUpperCase()}= '${request.query[key]}'`,
+        );
+      }
+    }
+  }
+
+  if (queryParams.length > 0) {
+    sql += ` WHERE ${queryParams.join(" AND ")}`;
+  }
+
+  console.log(sql);
+
   const resultado = await conexao.execute(sql);
   let numeroLinha = 0;
   let numeroColuna = 0;
@@ -115,8 +139,18 @@ async function consultarUF(request: Request, response: Response) {
     numeroLinha++;
     numeroColuna = 0;
   }
+
   console.log(resultado.rows);
   await fecharConexao();
+
+  if (
+    request.query.codigoUF ||
+    request.query.nome ||
+    request.query.sigla
+  ) {
+    return response.status(200).json(listaUFs[0]);
+  }
+
   response.status(200).json(listaUFs);
 }
 
