@@ -59,8 +59,12 @@ async function verificarExistenciaUF(sigla: string, nome: string) {
   const sqlSigla = `SELECT CODIGO_UF, SIGLA, NOME, STATUS FROM TB_UF WHERE Sigla='${sigla}'`;
 
   const resultadoNome = await conexao.execute(sqlNome);
+  console.log(
+    "************** VERIFICANDO SE EXISTE UF COM ESTE NOME....",
+  );
+
   if (resultadoNome.rows.length > 0) {
-    console.log("*****************SQL - nome: ", sqlNome);
+    console.log("***************** SQL - NOME EXISTE: ", sqlNome);
     console.log(resultadoNome.rows);
 
     const jsonRetorno = {
@@ -70,10 +74,13 @@ async function verificarExistenciaUF(sigla: string, nome: string) {
     return jsonRetorno;
   }
   const resultadoSigla = await conexao.execute(sqlSigla);
+  console.log(
+    "************** VERIFICANDO SE EXISTE UF COM ESTA SIGLA....",
+  );
   console.log(resultadoSigla.rowsAffected, " linhas afetadas Sigla");
 
   if (resultadoSigla.rows.length > 0) {
-    console.log("*****************SQL - sigla: ", sqlSigla);
+    console.log("***************** SQL - SIGLA EXISTE: ", sqlSigla);
     console.log(resultadoSigla.rows);
     const jsonRetorno = {
       status: 404,
@@ -453,6 +460,18 @@ async function alterarUF(request: Request, response: Response) {
       return response.status(400).json(jsonRetorno);
     }
 
+    //DESCONSIDERAR EXISTENCIA DE CAMPOS DO PROPRIO OBJETO
+    await abrirConexao();
+    const sqlPadrao =
+      "UPDATE TB_UF SET NOME= :nome, SIGLA= :sigla, STATUS= :status WHERE CODIGO_UF= :codigoUF ";
+    await conexao.execute(sqlPadrao, [
+      "xx",
+      "xx",
+      "1",
+      ufVo.codigoUF,
+    ]);
+    console.log(sqlPadrao);
+
     //VERIFICAR SE EXISTE REGISTRO COM MESMO VALOR NO BANCO
     const itemDuplicado = await verificarExistenciaUF(
       ufVo.sigla,
@@ -466,7 +485,7 @@ async function alterarUF(request: Request, response: Response) {
     const sql =
       "UPDATE TB_UF SET NOME= :nome, SIGLA= :sigla, STATUS= :status WHERE CODIGO_UF= :codigoUF ";
     const resultSet = await conexao.execute(sql, ufVo);
-
+    console.log(sql);
     //row = 0 noa editou nada
     if (resultSet.rowsAffected == 0) {
       await rollback();
@@ -820,6 +839,13 @@ async function alterarMunicipio(
       };
       return response.status(400).json(jsonRetorno);
     }
+
+    //DESCONSIDERAR EXISTENCIA DE CAMPOS DO PROPRIO OBJETO
+    await abrirConexao();
+    const sqlPadrao = `UPDATE TB_MUNICIPIO SET NOME= 'nome', CODIGO_UF= ${ufVo.codigoUF}, STATUS= '1' WHERE CODIGO_MUNICIPIO= ${ufVo.codigoMunicipio}`;
+    await conexao.execute(sqlPadrao);
+    console.log(sqlPadrao);
+    await commit();
 
     //VERIFICAR SE CODIGO_UF EXISTE
     const ufExiste = await verificarUfExiste(ufVo.codigoUF);
