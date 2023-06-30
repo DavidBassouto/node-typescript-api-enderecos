@@ -92,6 +92,34 @@ async function verificarExistenciaUF(sigla: string, nome: string) {
   await fecharConexao();
 }
 
+async function verificarExistenciaBairro(
+  codigo: number,
+  nome: string,
+) {
+  await abrirConexao();
+
+  const sql = `SELECT * FROM TB_BAIRRO WHERE CODIGO_MUNICIPIO=${codigo} AND NOME='${nome}'`;
+
+  const resultado = await conexao.execute(sql);
+
+  console.log(
+    "************** VERIFICANDO SE NOME JA ESTA CADASTRADO NESTE MUNICIPIO....",
+  );
+
+  if (resultado.rows.length > 0) {
+    console.log(
+      "************** NOME JA ESTA CADASTRADO NESTE MUNICIPIO",
+    );
+    const jsonRetorno = {
+      status: 404,
+      mensagem: "Nome já cadastrado para este MUNICIPIO",
+    };
+    return jsonRetorno;
+  }
+  console.log("************** NOME PERMITIDO PARA ESTE MUNICIPIO");
+
+  await fecharConexao();
+}
 async function verificarExistenciaMunicipio(
   codigoUF: number,
   nome: string,
@@ -137,6 +165,30 @@ async function verificarUfExiste(codigoUF: number) {
     const jsonRetorno = {
       status: 404,
       mensagem: "UF nao encontrado",
+    };
+    await fecharConexao();
+    return jsonRetorno;
+  }
+}
+async function verificarMunicipioExiste(codigo: number) {
+  await abrirConexao();
+
+  const sql = `SELECT * FROM TB_MUNICIPIO WHERE CODIGO_MUNICIPIO=${codigo}`;
+
+  const resultado = await conexao.execute(sql);
+
+  console.log("************** VERIFICANDO SE MUNICIPIO EXISTE....");
+
+  if (resultado.rows.length > 0) {
+    console.log("************** MUNICIPIO EXISTE");
+    await fecharConexao();
+    return false;
+  } else {
+    console.log("************** MUNICIPIO NAO EXISTE");
+
+    const jsonRetorno = {
+      status: 404,
+      mensagem: "MUNICIPIO nao encontrado",
     };
     await fecharConexao();
     return jsonRetorno;
@@ -208,6 +260,43 @@ async function camposObrigatoriosMunicipio(ufVo: any, tipo: string) {
     console.log("***************** Dentro do ufVo: ", ufVo);
 
     if (!ufVo.codigoMunicipio) {
+      const jsonRetorno = {
+        status: 404,
+        mensagem: "codigoMunicipio é um campo obrigatorio.",
+      };
+      return jsonRetorno;
+    }
+  }
+}
+
+async function camposObrigatoriosBairro(ufVo: any, tipo: string) {
+  if (!ufVo.codigoMunicipio) {
+    const jsonRetorno = {
+      status: 404,
+      mensagem: "codigoUF é um campo obrigatorio.",
+    };
+    return jsonRetorno;
+  }
+
+  if (!ufVo.nome) {
+    const jsonRetorno = {
+      status: 404,
+      mensagem: "Nome é um campo obrigatorio.",
+    };
+    return jsonRetorno;
+  }
+  if (!ufVo.status) {
+    const jsonRetorno = {
+      status: 404,
+      mensagem: "Status é um campo obrigatorio.",
+    };
+    return jsonRetorno;
+  }
+  if (tipo == "put") {
+    console.log("***************** Dentro do tipo: ", tipo);
+    console.log("***************** Dentro do ufVo: ", ufVo);
+
+    if (!ufVo.codigoBairro) {
       const jsonRetorno = {
         status: 404,
         mensagem: "codigoMunicipio é um campo obrigatorio.",
@@ -701,7 +790,7 @@ async function adicionarMunicipio(
       return response.status(404).json(camposObrigatorios);
     }
 
-    //VERIFICAR SE CODIGO UF É NUMERICO
+    //VERIFICAR SE CODIGO UFsy
     const regexNumero = /^\d+$/;
     if (!regexNumero.test(ufVo.codigoUF)) {
       const jsonRetorno = {
@@ -770,7 +859,7 @@ async function adicionarMunicipio(
     const jsonRetorno = {
       status: 404,
       mensagem:
-        "Não foi possível incluir Minicipio no banco de dados.",
+        "Não foi possível incluir Municipio no banco de dados.",
     };
     return response.status(404).json(jsonRetorno);
   } finally {
@@ -801,7 +890,7 @@ async function alterarMunicipio(
       return response.status(404).json(camposObrigatorios);
     }
 
-    //VERIFICAR SE CODIGO UF É NUMERICO
+    //VERIFICAR SE CODIGO UFsy
     const regexNumero = /^\d+$/;
     if (!regexNumero.test(ufVo.codigoUF)) {
       const jsonRetorno = {
@@ -811,16 +900,16 @@ async function alterarMunicipio(
       return response.status(404).json(jsonRetorno);
     }
 
-    //VERIFICAR SE SIGLA POSSUI NUMEROS
-    const regex = /^[\p{L}A-Za-z\s]+$/u;
-
-    if (!regex.test(ufVo.sigla)) {
+    //VERIFICAR SE CODIGO MUNICIPIOsy
+    if (!regexNumero.test(ufVo.codigoMunicipio)) {
       const jsonRetorno = {
         status: 404,
-        mensagem: "Sigla deve conter apenas letras.",
+        mensagem: "codigoMunicipio deve conter apenas números.",
       };
       return response.status(404).json(jsonRetorno);
     }
+
+    const regex = /^[\p{L}A-Za-z\s]+$/u;
 
     //VERIFICAR SE NOME POSSUI NUMEROS
     if (!regex.test(ufVo.nome)) {
@@ -946,7 +1035,385 @@ async function deletarMunicipio(
     await rollback();
     const jsonRetorno = {
       status: 404,
-      mensagem: "Não foi possível excluir UF no banco de dados.",
+      mensagem:
+        "Não foi possível excluir Municipio no banco de dados.",
+    };
+    return response.status(404).json(jsonRetorno);
+  } finally {
+    await fecharConexao();
+  }
+}
+
+//#endregion
+
+//#endregion
+
+//
+//
+//
+
+//#region TABELA_BAIRRO
+
+//#region GET BAIRRO
+
+app.get("/bairro", function (request, response) {
+  return consultarBairro(request, response);
+});
+
+async function consultarBairro(request: Request, response: Response) {
+  try {
+    const listabairro = [];
+    await abrirConexao();
+    let sql = "SELECT * FROM TB_BAIRRO ";
+    const queryParams: any = [];
+    const queryKeys = [
+      "codigoBairro",
+      "codigoMunicipio",
+      "nome",
+      "status",
+    ];
+
+    queryKeys.forEach(key => {
+      if (request.query[key]) {
+        if (key == "codigoBairro") {
+          key = "codigo_bairro";
+          queryParams.push(
+            `${key.toUpperCase()}= '${request.query.codigoBairro}'`,
+          );
+        }
+        if (key == "codigoMunicipio") {
+          key = "codigo_municipio";
+          queryParams.push(
+            `${key.toUpperCase()}= '${
+              request.query.codigoMunicipio
+            }'`,
+          );
+        }
+        if (key == "status") {
+          key = "status";
+          queryParams.push(
+            `${key.toUpperCase()}= '${request.query.status}'`,
+          );
+        }
+        if (key == "nome") {
+          key = "nome";
+          queryParams.push(
+            `${key.toUpperCase()}= '${request.query.nome}'`,
+          );
+        }
+      }
+    });
+
+    if (queryParams.length > 0) {
+      sql += ` WHERE ${queryParams.join(" AND ")}`;
+    }
+
+    console.log("*****************SQL: ", sql);
+    await abrirConexao();
+    const resultado = await conexao.execute(sql);
+    let numeroLinha = 0;
+    let numeroColuna = 0;
+    const quantidadeResultados = resultado.rows.length;
+
+    while (numeroLinha < quantidadeResultados) {
+      const ufVo = {
+        codigoBairro: resultado.rows[numeroLinha][numeroColuna++],
+        codigoMunicipio: resultado.rows[numeroLinha][numeroColuna++],
+        nome: resultado.rows[numeroLinha][numeroColuna++],
+        status: resultado.rows[numeroLinha][numeroColuna++],
+      };
+      listabairro.push(ufVo);
+      numeroLinha++;
+      numeroColuna = 0;
+    }
+
+    console.log(resultado.rows);
+    await fecharConexao();
+
+    if (request.query.codigoBairro) {
+      if (listabairro.length == 0) {
+        return response.status(200).json(listabairro);
+      } else {
+        return response.status(200).json(listabairro[0]);
+      }
+    }
+
+    return response.status(200).json(listabairro);
+  } catch (error) {
+    console.log(error);
+    await rollback();
+    const jsonRetorno = {
+      status: 404,
+      mensagem: "Não foi possível obter Municipios.",
+    };
+    return response.status(404).json(jsonRetorno);
+  } finally {
+    await fecharConexao();
+  }
+}
+//#endregion
+
+//#region  POST BAIRRO
+app.post("/bairro", async (request, response) => {
+  return await adicionarBairro(request, response);
+});
+
+async function adicionarBairro(request: Request, response: Response) {
+  try {
+    //CAPTURAR OS DADOS QUE VIERAM DA REQUISIÇÃO (FORMATO JSON)
+    const ufVo = request.body;
+
+    // verificar campos obrigatorios Municipio
+    const camposObrigatorios = await camposObrigatoriosBairro(
+      ufVo,
+      "post",
+    );
+    if (camposObrigatorios) {
+      return response.status(404).json(camposObrigatorios);
+    }
+
+    //VERIFICAR SE CODIGO Municipiosy
+    const regexNumero = /^\d+$/;
+    if (!regexNumero.test(ufVo.codigoMunicipio)) {
+      const jsonRetorno = {
+        status: 404,
+        mensagem: "codigoMunicipio deve conter apenas números.",
+      };
+      return response.status(404).json(jsonRetorno);
+    }
+
+    //VERIFICAR SE NOME POSSUI NUMEROS
+    const regex = /^[\p{L}A-Za-z\s]+$/u;
+
+    if (!regex.test(ufVo.nome)) {
+      const jsonRetorno = {
+        status: 404,
+        mensagem: "Nome deve conter apenas letras.",
+      };
+      return response.status(404).json(jsonRetorno);
+    }
+
+    //VERIFICAR VALOR DE STATUS
+    if (!(ufVo.status == 1 || ufVo.status == 2)) {
+      const jsonRetorno = {
+        status: 400,
+        mensagem: "Valor inválido para o campo Status.",
+      };
+      return response.status(400).json(jsonRetorno);
+    }
+
+    //VERIFICAR SE CODIGO_Municipio EXISTE
+    const municipioExiste = await verificarMunicipioExiste(
+      ufVo.codigoMunicipio,
+    );
+    if (municipioExiste) {
+      return response.status(400).json(municipioExiste);
+    }
+
+    //VERIFICAR SE EXISTE REGISTRO COM MESMO VALOR NO BANCO
+    const itemDuplicado = await verificarExistenciaBairro(
+      ufVo.codigoMunicipio,
+      ufVo.nome,
+    );
+    if (itemDuplicado) {
+      return response.status(400).json(itemDuplicado);
+    }
+
+    //ABRIR A CONEXÃO
+    await abrirConexao();
+    //GERAR UM CÓDIGO POR MEIO DE UMA SEQUENCE
+    ufVo.codigoBairro = await gerarSequence("SEQUENCE_BAIRRO");
+    //GERAR O MEU SQL PARA MANDAR GRAVAR NO BANCO DE DADOS
+    const sql =
+      "INSERT INTO TB_bairro (CODIGO_BAIRRO, CODIGO_MUNICIPIO, NOME, STATUS) VALUES (:codigoBairro, :codigoMunicipio, :nome, :status)";
+    //MANDAR EXECUTAR O MEU SQL PARA GRAVAR
+    const resultSet = await conexao.execute(sql, ufVo);
+    //VALIDAR SE OS REGISTROS FORAM INSERIDOS OU NÃO
+    console.log(
+      "FORAM INSERIDOS " +
+        resultSet.rowsAffected +
+        " REGISTROS NO BANCO DE DADOS",
+    );
+    //COMMITAR - MANDAR O BANCO GRAVAR REALMENTE O QUE O SQL MANDOU
+    await commit();
+    await consultarBairro(request, response);
+  } catch (err) {
+    console.log(err);
+    await rollback();
+    const jsonRetorno = {
+      status: 404,
+      mensagem: "Não foi possível incluir Bairro no banco de dados.",
+    };
+    return response.status(404).json(jsonRetorno);
+  } finally {
+    //FECHAR A CONEXAO
+    await fecharConexao();
+  }
+}
+//#endregion POST MUNICIPIO
+
+//#region PUT BAIRRO
+
+app.put("/bairro", async (request, response) => {
+  return await alterarBairro(request, response);
+});
+
+async function alterarBairro(request: Request, response: Response) {
+  try {
+    const ufVo = request.body;
+
+    const camposObrigatorios = await camposObrigatoriosBairro(
+      ufVo,
+      "put",
+    );
+    if (camposObrigatorios) {
+      return response.status(404).json(camposObrigatorios);
+    }
+
+    //VERIFICAR SE CODIGO É NUMERICOsy
+    const regexNumero = /^\d+$/;
+    if (!regexNumero.test(ufVo.codigoBairro)) {
+      const jsonRetorno = {
+        status: 404,
+        mensagem: "codigoBairro deve conter apenas números.",
+      };
+      return response.status(404).json(jsonRetorno);
+    }
+
+    if (!regexNumero.test(ufVo.codigoMunicipio)) {
+      const jsonRetorno = {
+        status: 404,
+        mensagem: "codigoMunicipio deve conter apenas números.",
+      };
+      return response.status(404).json(jsonRetorno);
+    }
+
+    //VERIFICAR SE SIGLA POSSUI NUMEROS
+    const regex = /^[\p{L}A-Za-z\s]+$/u;
+
+    //VERIFICAR SE NOME POSSUI NUMEROS
+    if (!regex.test(ufVo.nome)) {
+      const jsonRetorno = {
+        status: 404,
+        mensagem: "Nome deve conter apenas letras.",
+      };
+      return response.status(404).json(jsonRetorno);
+    }
+
+    //VERIFICAR VALOR DE STATUS
+    if (!(ufVo.status == 1 || ufVo.status == 2)) {
+      const jsonRetorno = {
+        status: 400,
+        mensagem: "Valor inválido para o campo Status.",
+      };
+      return response.status(400).json(jsonRetorno);
+    }
+
+    //DESCONSIDERAR EXISTENCIA DE CAMPOS DO PROPRIO OBJETO
+    await abrirConexao();
+    const sqlPadrao = `UPDATE TB_BAIRRO SET NOME= 'nome', CODIGO_MUNICIPIO= ${ufVo.codigoMunicipio}, STATUS= 1 WHERE CODIGO_BAIRRO= ${ufVo.codigoBairro}`;
+    await conexao.execute(sqlPadrao);
+    console.log(sqlPadrao);
+    await commit();
+
+    //VERIFICAR SE MUNICIPIO  EXISTE
+    const municipioExiste = await verificarMunicipioExiste(
+      ufVo.codigoMunicipio,
+    );
+    if (municipioExiste) {
+      return response.status(400).json(municipioExiste);
+    }
+
+    //VERIFICAR SE EXISTE REGISTRO COM MESMO VALOR NO BANCO
+    const itemDuplicado = await verificarExistenciaBairro(
+      ufVo.codigoMunicipio,
+      ufVo.nome,
+    );
+    if (itemDuplicado) {
+      return response.status(400).json(itemDuplicado);
+    }
+
+    await abrirConexao();
+    const sql =
+      "UPDATE TB_BAIRRO SET NOME= :nome, CODIGO_MUNICIPIO= :codigoMunicipio, STATUS= :status WHERE CODIGO_BAIRRO= :codigoBairro";
+    const resultSet = await conexao.execute(sql, ufVo);
+    console.log(sql);
+    //row = 0 noa editou nada
+    if (resultSet.rowsAffected == 0) {
+      await rollback();
+      const jsonRetorno = {
+        status: 404,
+        mensagem:
+          "Nenhum item encontrado com o codigoBairro fornecido",
+      };
+      return response.status(404).json(jsonRetorno);
+    }
+    console.log(
+      "Foram alterados" +
+        resultSet.rowsAffected +
+        "registros no banco de dados",
+    );
+    await commit();
+    await consultarBairro(request, response);
+  } catch (error) {
+    console.log(error);
+    await rollback();
+    const jsonRetorno = {
+      status: 404,
+      mensagem: "Não foi possível alterar Bairro no banco de dados.",
+    };
+    return response.status(404).json(jsonRetorno);
+  } finally {
+    await fecharConexao();
+  }
+}
+
+//#endregion
+
+//#region DELETE BAIRRO
+app.delete("/bairro/:id", async (request, response) => {
+  return await deletarBairro(request, response);
+});
+
+async function deletarBairro(request: Request, response: Response) {
+  try {
+    const codigoBairro = request.params.id;
+
+    const regexNumero = /^\d+$/;
+    if (!regexNumero.test(codigoBairro)) {
+      const jsonRetorno = {
+        status: 404,
+        mensagem: "Parâmetro deve conter valor numérico",
+      };
+      return response.status(404).json(jsonRetorno);
+    }
+
+    await abrirConexao();
+    const sql = `DELETE FROM TB_BAIRRO WHERE CODIGO_BAIRRO= ${codigoBairro} `;
+    const resultSet = await conexao.execute(sql);
+    //row = 0 noa editou nada
+    if (resultSet.rowsAffected == 0) {
+      await rollback();
+      const jsonRetorno = {
+        status: 404,
+        mensagem:
+          "Nenhum item encontrado com o codigoBairro fornecido",
+      };
+      return response.status(404).json(jsonRetorno);
+    }
+    console.log(
+      "Foram alterados" +
+        resultSet.rowsAffected +
+        "registros no banco de dados",
+    );
+    await commit();
+    await consultarBairro(request, response);
+  } catch (error) {
+    console.log(error);
+    await rollback();
+    const jsonRetorno = {
+      status: 404,
+      mensagem: "Não foi possível excluir BAIRRO no banco de dados.",
     };
     return response.status(404).json(jsonRetorno);
   } finally {
