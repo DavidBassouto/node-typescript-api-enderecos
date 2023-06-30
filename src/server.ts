@@ -146,6 +146,31 @@ async function verificarExistenciaMunicipio(
 
   await fecharConexao();
 }
+
+async function verificarLoginDuplicado(login: string) {
+  await abrirConexao();
+
+  const sql = `SELECT * FROM TB_PESSOA WHERE LOGIN='${login}'`;
+
+  const resultado = await conexao.execute(sql);
+
+  console.log(
+    "************** VERIFICANDO SE LOGIN JA ESTA CADASTRADO....",
+  );
+
+  if (resultado.rows.length > 0) {
+    console.log("************** LOGIN JA ESTA CADASTRADO");
+    const jsonRetorno = {
+      status: 404,
+      mensagem: `LOGIN ${login} JA ESTA SENDO UTILIZADO`,
+    };
+    return jsonRetorno;
+  }
+  console.log("************** LOGIN PERMITIDO");
+
+  await fecharConexao();
+}
+
 async function verificarUfExiste(codigoUF: number) {
   await abrirConexao();
 
@@ -192,6 +217,32 @@ async function verificarMunicipioExiste(codigo: number) {
     };
     await fecharConexao();
     return jsonRetorno;
+  }
+}
+async function verificarBairroExiste(
+  codigo: any,
+  response: Response,
+) {
+  await abrirConexao();
+
+  const sql = `SELECT * FROM TB_BAIRRO WHERE CODIGO_BAIRRO=${codigo}`;
+
+  const resultado = await conexao.execute(sql);
+
+  console.log("************** VERIFICANDO SE BAIRRO EXISTE....");
+
+  if (resultado.rows.length > 0) {
+    console.log("************** BAIRRO EXISTE, codigo= " + codigo);
+    await fecharConexao();
+  } else {
+    console.log("************** BAIRRO NAO EXISTE,codigo= " + codigo);
+    const jsonRetorno = {
+      status: 404,
+      mensagem: "BAIRRO nao encontrado",
+    };
+
+    await fecharConexao();
+    return response.status(404).json(jsonRetorno);
   }
 }
 
@@ -304,6 +355,147 @@ async function camposObrigatoriosBairro(ufVo: any, tipo: string) {
       return jsonRetorno;
     }
   }
+}
+async function camposObrigatoriosPessoa(ufVo: any, tipo: string) {
+  if (!ufVo.nome) {
+    const jsonRetorno = {
+      status: 404,
+      mensagem: "Nome é um campo obrigatorio.",
+    };
+    return jsonRetorno;
+  }
+  if (!ufVo.sobrenome) {
+    const jsonRetorno = {
+      status: 404,
+      mensagem: "sobrenome é um campo obrigatorio.",
+    };
+    return jsonRetorno;
+  }
+  if (!ufVo.idade) {
+    const jsonRetorno = {
+      status: 404,
+      mensagem: "idade é um campo obrigatorio.",
+    };
+    return jsonRetorno;
+  }
+  if (!ufVo.login) {
+    const jsonRetorno = {
+      status: 404,
+      mensagem: "login é um campo obrigatorio.",
+    };
+    return jsonRetorno;
+  }
+  if (!ufVo.senha) {
+    const jsonRetorno = {
+      status: 404,
+      mensagem: "senha é um campo obrigatorio.",
+    };
+    return jsonRetorno;
+  }
+  if (!ufVo.status) {
+    const jsonRetorno = {
+      status: 404,
+      mensagem: "status é um campo obrigatorio.",
+    };
+    return jsonRetorno;
+  }
+  if (!ufVo.enderecos) {
+    const jsonRetorno = {
+      status: 404,
+      mensagem: "enderecos é um campo obrigatorio.",
+    };
+    return jsonRetorno;
+  }
+  if (ufVo.enderecos.length == 0) {
+    const jsonRetorno = {
+      status: 404,
+      mensagem: "enderecos nao pode estar vazio.",
+    };
+    return jsonRetorno;
+  }
+  if (tipo == "put") {
+    console.log("***************** REQUISICAO: " + tipo);
+    console.log("***************** Dentro do ufVo: " + ufVo);
+
+    if (!ufVo.codigoPessoa) {
+      const jsonRetorno = {
+        status: 404,
+        mensagem: "codigoPessoa é um campo obrigatorio.",
+      };
+      return jsonRetorno;
+    }
+  }
+}
+async function camposObrigatoriosEndereco(
+  ufVo: any,
+  tipo: string,
+  response: Response,
+) {
+  if (!ufVo.codigoBairro) {
+    const jsonRetorno = {
+      status: 404,
+      mensagem: "codigoBairro é um campo obrigatorio.",
+    };
+    return response.status(404).json(jsonRetorno);
+  }
+  if (!ufVo.nomeRua) {
+    const jsonRetorno = {
+      status: 404,
+      mensagem: "nomeRua é um campo obrigatorio.",
+    };
+    return response.status(404).json(jsonRetorno);
+  }
+  if (!ufVo.numero) {
+    const jsonRetorno = {
+      status: 404,
+      mensagem: "numero é um campo obrigatorio.",
+    };
+    return response.status(404).json(jsonRetorno);
+  }
+  if (!ufVo.complemento) {
+    const jsonRetorno = {
+      status: 404,
+      mensagem: "complemento é um campo obrigatorio.",
+    };
+    return response.status(404).json(jsonRetorno);
+  }
+  if (!ufVo.cep) {
+    const jsonRetorno = {
+      status: 404,
+      mensagem: "cep é um campo obrigatorio.",
+    };
+    return response.status(404).json(jsonRetorno);
+  }
+
+  if (tipo == "put") {
+    console.log("***************** REQUISICAO: " + tipo);
+    console.log("***************** Dentro do ufVo: " + ufVo);
+
+    if (!ufVo.codigoEndereco) {
+      const jsonRetorno = {
+        status: 404,
+        mensagem: "codigoPessoa é um campo obrigatorio.",
+      };
+      return response.status(404).json(jsonRetorno);
+    }
+  }
+}
+async function adicionarEndereco(codigoPessoa: any, endereco: any) {
+  //GERAR UM CÓDIGO POR MEIO DE UMA SEQUENCE
+  await abrirConexao();
+  endereco.codigoEndereco = await gerarSequence("SEQUENCE_ENDERECO");
+  //GERAR O MEU SQL PARA MANDAR GRAVAR NO BANCO DE DADOS
+  const sql = `INSERT INTO TB_ENDERECO (CODIGO_ENDERECO, CODIGO_PESSOA, CODIGO_BAIRRO, NOME_RUA, NUMERO, COMPLEMENTO, CEP) VALUES (${endereco.codigoEndereco}, ${codigoPessoa}, ${endereco.codigoBairro}, '${endereco.nomeRua}','${endereco.numero}','${endereco.complemento}', '${endereco.cep}')`;
+  //MANDAR EXECUTAR O MEU SQL PARA GRAVAR
+  const resultSet = await conexao.execute(sql);
+  console.log(`sql para inserir endereco: ${sql}`);
+  //VALIDAR SE OS REGISTROS FORAM INSERIDOS OU NÃO
+  console.log(
+    "FORAM INSERIDOS " +
+      resultSet.rowsAffected +
+      " REGISTROS NO BANCO DE DADOS",
+  );
+  await commit();
 }
 //#endregion
 
@@ -1425,6 +1617,248 @@ async function deletarBairro(request: Request, response: Response) {
 
 //#endregion
 
+//
+//
+//
+
+//#region  TABELA PESSOA _ ENDERECOS
+
+//#region GET PESSOA
+//#region GET BAIRRO
+
+app.get("/pessoa", function (request, response) {
+  return consultarPessoa(request, response);
+});
+
+async function consultarPessoa(request: Request, response: Response) {
+  try {
+    const listaPessoa = [];
+    await abrirConexao();
+    let sql = "SELECT * FROM TB_PESSOA ";
+    const queryParams: any = [];
+    const queryKeys = ["codigoPessoa", "login", "status"];
+
+    queryKeys.forEach(key => {
+      if (request.query[key]) {
+        if (key == "codigoPessoa") {
+          key = "codigo_pessoa";
+          queryParams.push(
+            `${key.toUpperCase()}= '${request.query.codigoPessoa}'`,
+          );
+        }
+        if (key == "status") {
+          key = "status";
+          queryParams.push(
+            `${key.toUpperCase()}= '${request.query.status}'`,
+          );
+        }
+        if (key == "login") {
+          key = "login";
+          queryParams.push(
+            `${key.toUpperCase()}= '${request.query.login}'`,
+          );
+        }
+      }
+    });
+
+    if (queryParams.length > 0) {
+      sql += ` WHERE ${queryParams.join(" AND ")}`;
+    }
+
+    console.log("*****************SQL: " + sql);
+    await abrirConexao();
+    const resultado = await conexao.execute(sql);
+    let numeroLinha = 0;
+    let numeroColuna = 0;
+    const quantidadeResultados = resultado.rows.length;
+
+    while (numeroLinha < quantidadeResultados) {
+      const ufVo = {
+        codigoPessoa: resultado.rows[numeroLinha][numeroColuna++],
+        nome: resultado.rows[numeroLinha][numeroColuna++],
+        sobrenome: resultado.rows[numeroLinha][numeroColuna++],
+        idade: resultado.rows[numeroLinha][numeroColuna++],
+        login: resultado.rows[numeroLinha][numeroColuna++],
+        senha: resultado.rows[numeroLinha][numeroColuna++],
+        status: resultado.rows[numeroLinha][numeroColuna++],
+        enderecos:[]
+      };
+      listaPessoa.push(ufVo);
+      numeroLinha++;
+      numeroColuna = 0;
+    }
+
+    console.log(resultado.rows);
+    await fecharConexao();
+
+    if (request.query.codigoBairro) {
+      if (listaPessoa.length == 0) {
+        return response.status(200).json(listaPessoa);
+      } else {
+        return response.status(200).json(listaPessoa[0]);
+      }
+    }
+
+    return response.status(200).json(listaPessoa);
+  } catch (error) {
+    console.log(error);
+    await rollback();
+    const jsonRetorno = {
+      status: 404,
+      mensagem: "Não foi possível obter Municipios.",
+    };
+    return response.status(404).json(jsonRetorno);
+  } finally {
+    await fecharConexao();
+  }
+}
+//#endregion
+
+//#endregion
+
+//#region  POST PESSOA
+app.post("/pessoa", async (request, response) => {
+  return await adicionarPessoa(request, response);
+});
+
+async function adicionarPessoa(request: Request, response: Response) {
+  try {
+    //CAPTURAR OS DADOS QUE VIERAM DA REQUISIÇÃO (FORMATO JSON)
+    const ufVo = request.body;
+
+    // verificar campos obrigatorios Municipio
+    const camposObrigatorios = await camposObrigatoriosPessoa(
+      ufVo,
+      "post",
+    );
+    if (camposObrigatorios) {
+      return response.status(404).json(camposObrigatorios);
+    }
+
+    await ufVo.enderecos.forEach((endereco: any) => {
+      camposObrigatoriosEndereco(endereco, "post", response);
+    });
+
+    //VERIFICAR SE CODIGO Municipios
+    const regexNumero = /^\d+$/;
+    if (!regexNumero.test(ufVo.idade)) {
+      const jsonRetorno = {
+        status: 404,
+        mensagem: "idade deve conter apenas números.",
+      };
+      return response.status(404).json(jsonRetorno);
+    }
+
+    //VERIFICAR SE NOME POSSUI NUMEROS
+    const regex = /^[\p{L}A-Za-z\s]+$/u;
+
+    if (!regex.test(ufVo.nome)) {
+      const jsonRetorno = {
+        status: 404,
+        mensagem: "Nome deve conter apenas letras.",
+      };
+      return response.status(404).json(jsonRetorno);
+    }
+    if (!regex.test(ufVo.sobrenome)) {
+      const jsonRetorno = {
+        status: 404,
+        mensagem: "sobrenome deve conter apenas letras.",
+      };
+      return response.status(404).json(jsonRetorno);
+    }
+
+    //VERIFICAR VALOR DE STATUS
+    if (!(ufVo.status == 1 || ufVo.status == 2)) {
+      const jsonRetorno = {
+        status: 400,
+        mensagem: "Valor inválido para o campo Status.",
+      };
+      return response.status(400).json(jsonRetorno);
+    }
+
+    //VERIFICAR SE CODIGO_bairro EXISTE
+    await ufVo.enderecos.forEach((element: any) => {
+      verificarBairroExiste(element.codigoBairro, response);
+    });
+
+    //VERIFICAR SE POSSUI NUMEROS
+    ufVo.enderecos.forEach((element: any) => {
+      if (!regex.test(element.nomeRua)) {
+        const jsonRetorno = {
+          status: 404,
+          mensagem: "nomeRua deve conter apenas letras.",
+        };
+        return response.status(404).json(jsonRetorno);
+      }
+    });
+
+    ufVo.enderecos.forEach((element: any) => {
+      if (!regex.test(element.complemento)) {
+        const jsonRetorno = {
+          status: 404,
+          mensagem: "complemento deve conter apenas letras.",
+        };
+        return response.status(404).json(jsonRetorno);
+      }
+    });
+
+    //verificar se CEP esta no formato BR
+    const cepRegex = /\b\d{5}-\d{3}\b/;
+    ufVo.enderecos.forEach((element: any) => {
+      if (!cepRegex.test(element.cep)) {
+        const jsonRetorno = {
+          status: 404,
+          mensagem:
+            "cep deve conter apenas numeros e estar no formato brasileiro, exemplo: 12345-678.",
+        };
+        return response.status(404).json(jsonRetorno);
+      }
+    });
+
+    //VERIFICAR SE EXISTE REGISTRO COM MESMO VALOR NO BANCO
+    const itemDuplicado = await verificarLoginDuplicado(ufVo.login);
+    if (itemDuplicado) {
+      return response.status(400).json(itemDuplicado);
+    }
+
+    //ABRIR A CONEXÃO
+    await abrirConexao();
+    //GERAR UM CÓDIGO POR MEIO DE UMA SEQUENCE
+    ufVo.codigoPessoa = await gerarSequence("SEQUENCE_PESSOA");
+    //GERAR O MEU SQL PARA MANDAR GRAVAR NO BANCO DE DADOS
+    const sql = `INSERT INTO TB_PESSOA (CODIGO_PESSOA, NOME, SOBRENOME, IDADE, LOGIN, SENHA, STATUS) VALUES (${ufVo.codigoPessoa}, '${ufVo.nome}', '${ufVo.sobrenome}', ${ufVo.idade},'${ufVo.login}','${ufVo.senha}', ${ufVo.status})`;
+    //MANDAR EXECUTAR O MEU SQL PARA GRAVAR
+    const resultSet = await conexao.execute(sql);
+    console.log(`SQL PARA INSERIR PESSOA: ${sql}`);
+    //VALIDAR SE OS REGISTROS FORAM INSERIDOS OU NÃO
+    console.log(
+      "FORAM INSERIDOS " +
+        resultSet.rowsAffected +
+        " REGISTROS NO BANCO DE DADOS",
+    );
+
+    await ufVo.enderecos.forEach((endereco: any) => {
+      adicionarEndereco(ufVo.codigoPessoa, endereco);
+    });
+    //COMMITAR - MANDAR O BANCO GRAVAR REALMENTE O QUE O SQL MANDOU
+    await commit();
+    await consultarBairro(request, response);
+  } catch (err) {
+    console.log(err);
+    await rollback();
+    const jsonRetorno = {
+      status: 404,
+      mensagem: "Não foi possível incluir Pessoa no banco de dados.",
+    };
+    return response.status(404).json(jsonRetorno);
+  } finally {
+    //FECHAR A CONEXAO
+    await fecharConexao();
+  }
+}
+//#endregion
+
+//#endregion
 app.listen(3333, () => {
   console.log("O SERVIDOR FOI INICIADO COM SUCESSO..");
 });
