@@ -2244,6 +2244,65 @@ async function modificarPessoa(request: Request, response: Response) {
 }
 
 //#endregion
+
+//#region  DELETE PESSOA
+app.delete("/pessoa/:id", async (request, response) => {
+  return await deletarPessoa(request, response);
+});
+
+async function deletarPessoa(request: Request, response: Response) {
+  try {
+    const codigoPessoa = request.params.id;
+
+    const regexNumero = /^\d+$/;
+    if (!regexNumero.test(codigoPessoa)) {
+      const jsonRetorno = {
+        status: 404,
+        mensagem: "Parâmetro deve conter valor numérico",
+      };
+      return response.status(404).json(jsonRetorno);
+    }
+
+    await abrirConexao();
+    const sqlEnderco = `DELETE FROM TB_Endereco WHERE CODIGO_PESSOA= ${codigoPessoa} `;
+    await conexao.execute(sqlEnderco);
+    console.log(
+      "/////////// deletando ederecos relacionados:  " + sqlEnderco,
+    );
+    const sql = `DELETE FROM TB_PESSOA WHERE CODIGO_PESSOA= ${codigoPessoa} `;
+    const resultSet = await conexao.execute(sql);
+    console.log("/////////// sql deletar pessoa:  " + sql);
+    //row = 0 noa editou nada
+    if (resultSet.rowsAffected == 0) {
+      await rollback();
+      const jsonRetorno = {
+        status: 404,
+        mensagem:
+          "Nenhum item encontrado com o codigoPessoa fornecido",
+      };
+      return response.status(404).json(jsonRetorno);
+    }
+    console.log(
+      "Foram alterados" +
+        resultSet.rowsAffected +
+        "registros no banco de dados",
+    );
+    await commit();
+    await consultarPessoa(request, response);
+  } catch (error) {
+    console.log(error);
+    await rollback();
+    const jsonRetorno = {
+      status: 404,
+      mensagem: "Não foi possível excluir PESSOA no banco de dados.",
+    };
+    return response.status(404).json(jsonRetorno);
+  } finally {
+    await fecharConexao();
+  }
+}
+//#endregion
+
 //#endregion
 app.listen(3333, () => {
   console.log("O SERVIDOR FOI INICIADO COM SUCESSO..");
