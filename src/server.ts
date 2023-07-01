@@ -513,6 +513,52 @@ async function alterarEndereco(endereco: any, response: Response) {
     await commit();
   }
 }
+
+async function buscarEnderecosCodigoPessoa(codigo: any) {
+  console.log(
+    "*******************************************SQL ENDERERCOS CODIGO_PESSOA: ******",
+  );
+  await abrirConexao();
+  const listaEndereco = [];
+  const sqlEnderecoPessoa = `select TB_ENDERECO.* FROm TB_ENDERECO WHERE codigo_pessoa= ${codigo}`;
+  console.log(
+    "*****************SQL ENDERERCOS PESSOA: " + sqlEnderecoPessoa,
+  );
+  await abrirConexao();
+  const resultadoEndereco = await conexao.execute(sqlEnderecoPessoa);
+  let nLinhaEndereco = 0;
+  let nColunaEndereco = 0;
+  const quantidadeResultadosEndereco = resultadoEndereco.rows.length;
+
+  while (nLinhaEndereco < quantidadeResultadosEndereco) {
+    const enderecoPessoa = {
+      codigoEndereco:
+        resultadoEndereco.rows[nLinhaEndereco][nColunaEndereco++],
+      codigoPessoa:
+        resultadoEndereco.rows[nLinhaEndereco][nColunaEndereco++],
+      codigoBairro:
+        resultadoEndereco.rows[nLinhaEndereco][nColunaEndereco++],
+      nomeRua:
+        resultadoEndereco.rows[nLinhaEndereco][nColunaEndereco++],
+      numero:
+        resultadoEndereco.rows[nLinhaEndereco][nColunaEndereco++],
+      complemento:
+        resultadoEndereco.rows[nLinhaEndereco][nColunaEndereco++],
+      cep: resultadoEndereco.rows[nLinhaEndereco][nColunaEndereco++],
+    };
+    listaEndereco.push(enderecoPessoa);
+    nLinhaEndereco++;
+    nColunaEndereco = 0;
+  }
+
+  console.log(
+    "***************** RESULTADO CODIGO_ENDERERCO PESSOA:  //////////////////" +
+      resultadoEndereco.rows,
+  );
+  await fecharConexao();
+
+  return listaEndereco;
+}
 //#endregion
 
 //
@@ -1734,7 +1780,10 @@ async function consultarPessoa(request: Request, response: Response) {
     if (request.query.codigoPessoa) {
       await abrirConexao();
       const sqlEnderecoPessoa = `select TB_ENDERECO.*, TB_BAIRRO.*, TB_MUNICIPIO.*, TB_UF.* FROM TB_ENDERECO INNER JOIN tb_bairro ON tb_bairro.codigo_bairro = tb_endereco.codigo_bairro INNER JOIN tb_municipio ON tb_municipio.codigo_municipio = tb_bairro.codigo_municipio INNER JOIN TB_UF ON tb_uf.codigo_uf = tb_municipio.codigo_uf WHERE codigo_pessoa= ${request.query.codigoPessoa}`;
-      console.log("*****************SQL ENDERERCOS PESSOA: " + sql);
+      console.log(
+        "*****************SQL ENDERERCOS PESSOA: " +
+          sqlEnderecoPessoa,
+      );
       await abrirConexao();
       const resultadoEndereco = await conexao.execute(
         sqlEnderecoPessoa,
@@ -2132,6 +2181,23 @@ async function modificarPessoa(request: Request, response: Response) {
         endCriar.push(end);
       }
     });
+
+    const enderecosCadastrados: any =
+      await buscarEnderecosCodigoPessoa(ufVo.codigoPessoa);
+
+    const enderecoDeletar = enderecosCadastrados.filter(
+      (endereco: any) =>
+        !endAlterar.some(
+          (alterar: any) =>
+            alterar.codigoEndereco === endereco.codigoEndereco,
+        ),
+    );
+
+    // await enderecosCadastrados.filter((elemento: any) => {
+    //   if (endAlterar) {
+    //     enderecoDeletar.push(elemento);
+    //   }
+    // });
 
     await endCriar.forEach((e: any) =>
       adicionarEndereco(ufVo.codigoPessoa, e),
