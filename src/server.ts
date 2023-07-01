@@ -559,6 +559,22 @@ async function buscarEnderecosCodigoPessoa(codigo: any) {
 
   return listaEndereco;
 }
+
+async function deletarEnderecosNaoPassadosNoBody(codigo: any) {
+  await abrirConexao();
+  const sql = `DELETE FROM TB_ENDERECO WHERE CODIGO_ENDERECO= ${codigo}`;
+  const resultSet = await conexao.execute(sql);
+  console.log("**************** SQL DELETAR ENDERCO PUT: " + sql);
+  //row = 0 noa editou nada
+  console.log(
+    "Foram alterados" +
+      resultSet.rowsAffected +
+      "registros no banco de dados",
+  );
+  await commit();
+  return;
+}
+
 //#endregion
 
 //
@@ -2192,6 +2208,10 @@ async function modificarPessoa(request: Request, response: Response) {
             alterar.codigoEndereco === endereco.codigoEndereco,
         ),
     );
+
+    await enderecoDeletar.forEach((endereco: any) => {
+      deletarEnderecosNaoPassadosNoBody(endereco.codigoEndereco);
+    });
 
     // await enderecosCadastrados.filter((elemento: any) => {
     //   if (endAlterar) {
