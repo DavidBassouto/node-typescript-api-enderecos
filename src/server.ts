@@ -1635,7 +1635,14 @@ async function consultarPessoa(request: Request, response: Response) {
     await abrirConexao();
     let sql = "SELECT * FROM TB_PESSOA ";
     const queryParams: any = [];
-    const queryKeys = ["codigoPessoa", "login", "status"];
+    const queryKeys = [
+      "codigoPessoa",
+      "login",
+      "status",
+      "idade",
+      "nome",
+      "sobrenome",
+    ];
 
     queryKeys.forEach(key => {
       if (request.query[key]) {
@@ -1655,6 +1662,24 @@ async function consultarPessoa(request: Request, response: Response) {
           key = "login";
           queryParams.push(
             `${key.toUpperCase()}= '${request.query.login}'`,
+          );
+        }
+        if (key == "idade") {
+          key = "idade";
+          queryParams.push(
+            `${key.toUpperCase()}= '${request.query.idade}'`,
+          );
+        }
+        if (key == "nome") {
+          key = "nome";
+          queryParams.push(
+            `${key.toUpperCase()}= '${request.query.nome}'`,
+          );
+        }
+        if (key == "sobrenome") {
+          key = "sobrenome";
+          queryParams.push(
+            `${key.toUpperCase()}= '${request.query.sobrenome}'`,
           );
         }
       }
@@ -1928,7 +1953,7 @@ async function adicionarPessoa(request: Request, response: Response) {
     });
     //COMMITAR - MANDAR O BANCO GRAVAR REALMENTE O QUE O SQL MANDOU
     await commit();
-    await consultarBairro(request, response);
+    await consultarPessoa(request, response);
   } catch (err) {
     console.log(err);
     await rollback();
