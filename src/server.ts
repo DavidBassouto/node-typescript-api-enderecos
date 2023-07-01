@@ -1624,7 +1624,6 @@ async function deletarBairro(request: Request, response: Response) {
 //#region  TABELA PESSOA _ ENDERECOS
 
 //#region GET PESSOA
-//#region GET BAIRRO
 
 app.get("/pessoa", function (request, response) {
   return consultarPessoa(request, response);
@@ -1632,7 +1631,7 @@ app.get("/pessoa", function (request, response) {
 
 async function consultarPessoa(request: Request, response: Response) {
   try {
-    const listaPessoa = [];
+    const listaPessoa: any = [];
     await abrirConexao();
     let sql = "SELECT * FROM TB_PESSOA ";
     const queryParams: any = [];
@@ -1681,7 +1680,7 @@ async function consultarPessoa(request: Request, response: Response) {
         login: resultado.rows[numeroLinha][numeroColuna++],
         senha: resultado.rows[numeroLinha][numeroColuna++],
         status: resultado.rows[numeroLinha][numeroColuna++],
-        enderecos:[]
+        enderecos: [],
       };
       listaPessoa.push(ufVo);
       numeroLinha++;
@@ -1691,7 +1690,96 @@ async function consultarPessoa(request: Request, response: Response) {
     console.log(resultado.rows);
     await fecharConexao();
 
-    if (request.query.codigoBairro) {
+    if (request.query.codigoPessoa) {
+      await abrirConexao();
+      const sqlEnderecoPessoa = `select TB_ENDERECO.*, TB_BAIRRO.*, TB_MUNICIPIO.*, TB_UF.* FROM TB_ENDERECO INNER JOIN tb_bairro ON tb_bairro.codigo_bairro = tb_endereco.codigo_bairro INNER JOIN tb_municipio ON tb_municipio.codigo_municipio = tb_bairro.codigo_municipio INNER JOIN TB_UF ON tb_uf.codigo_uf = tb_municipio.codigo_uf WHERE codigo_pessoa= ${request.query.codigoPessoa}`;
+      console.log("*****************SQL ENDERERCOS PESSOA: " + sql);
+      await abrirConexao();
+      const resultadoEndereco = await conexao.execute(
+        sqlEnderecoPessoa,
+      );
+      let nLinhaEndereco = 0;
+      let nColunaEndereco = 0;
+      const quantidadeResultadosEndereco =
+        resultadoEndereco.rows.length;
+
+      while (nLinhaEndereco < quantidadeResultadosEndereco) {
+        const enderecoPessoa = {
+          codigoEndereco:
+            resultadoEndereco.rows[nLinhaEndereco][nColunaEndereco++],
+          codigoPessoa:
+            resultadoEndereco.rows[nLinhaEndereco][nColunaEndereco++],
+          codigoBairro:
+            resultadoEndereco.rows[nLinhaEndereco][nColunaEndereco++],
+          nomeRua:
+            resultadoEndereco.rows[nLinhaEndereco][nColunaEndereco++],
+          numero:
+            resultadoEndereco.rows[nLinhaEndereco][nColunaEndereco++],
+          complemento:
+            resultadoEndereco.rows[nLinhaEndereco][nColunaEndereco++],
+          cep: resultadoEndereco.rows[nLinhaEndereco][
+            nColunaEndereco++
+          ],
+          bairro: {
+            codigoBairro:
+              resultadoEndereco.rows[nLinhaEndereco][
+                nColunaEndereco++
+              ],
+            codigoMunicipio:
+              resultadoEndereco.rows[nLinhaEndereco][
+                nColunaEndereco++
+              ],
+            nome: resultadoEndereco.rows[nLinhaEndereco][
+              nColunaEndereco++
+            ],
+            status:
+              resultadoEndereco.rows[nLinhaEndereco][
+                nColunaEndereco++
+              ],
+            municipio: {
+              codigoMunicipio:
+                resultadoEndereco.rows[nLinhaEndereco][
+                  nColunaEndereco++
+                ],
+              codigoUF:
+                resultadoEndereco.rows[nLinhaEndereco][
+                  nColunaEndereco++
+                ],
+              nome: resultadoEndereco.rows[nLinhaEndereco][
+                nColunaEndereco++
+              ],
+              status:
+                resultadoEndereco.rows[nLinhaEndereco][
+                  nColunaEndereco++
+                ],
+              uf: {
+                codigoUF:
+                  resultadoEndereco.rows[nLinhaEndereco][
+                    nColunaEndereco++
+                  ],
+                sigla:
+                  resultadoEndereco.rows[nLinhaEndereco][
+                    nColunaEndereco++
+                  ],
+                nome: resultadoEndereco.rows[nLinhaEndereco][
+                  nColunaEndereco++
+                ],
+                status:
+                  resultadoEndereco.rows[nLinhaEndereco][
+                    nColunaEndereco++
+                  ],
+              },
+            },
+          },
+        };
+        listaPessoa[0].enderecos.push(enderecoPessoa);
+        nLinhaEndereco++;
+        nColunaEndereco = 0;
+      }
+
+      console.log(resultadoEndereco.rows);
+      await fecharConexao();
+
       if (listaPessoa.length == 0) {
         return response.status(200).json(listaPessoa);
       } else {
@@ -1705,15 +1793,13 @@ async function consultarPessoa(request: Request, response: Response) {
     await rollback();
     const jsonRetorno = {
       status: 404,
-      mensagem: "Não foi possível obter Municipios.",
+      mensagem: "Não foi possível obter Pessoa.",
     };
     return response.status(404).json(jsonRetorno);
   } finally {
     await fecharConexao();
   }
 }
-//#endregion
-
 //#endregion
 
 //#region  POST PESSOA
