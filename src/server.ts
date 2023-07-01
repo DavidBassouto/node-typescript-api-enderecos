@@ -466,19 +466,6 @@ async function camposObrigatoriosEndereco(
     };
     return response.status(404).json(jsonRetorno);
   }
-
-  if (tipo == "put") {
-    console.log("***************** REQUISICAO: " + tipo);
-    console.log("***************** Dentro do ufVo: " + ufVo);
-
-    if (!ufVo.codigoEndereco) {
-      const jsonRetorno = {
-        status: 404,
-        mensagem: "codigoPessoa é um campo obrigatorio.",
-      };
-      return response.status(404).json(jsonRetorno);
-    }
-  }
 }
 async function adicionarEndereco(codigoPessoa: any, endereco: any) {
   //GERAR UM CÓDIGO POR MEIO DE UMA SEQUENCE
@@ -495,7 +482,36 @@ async function adicionarEndereco(codigoPessoa: any, endereco: any) {
       resultSet.rowsAffected +
       " REGISTROS NO BANCO DE DADOS",
   );
-  await commit();
+}
+
+async function alterarEndereco(endereco: any, response: Response) {
+  await abrirConexao();
+  // const sqlPadrao = `UPDATE TB_ENDERECO SET CODIGO_BAIRRO=1, NOME_RUA='nome', NUMERO=1, CEP='12345-678', COMPLEMENTO='complemento' WHERE CODIGO_PESSOA= ${endereco.codigoEndereco}`;
+  // await conexao.execute(sqlPadrao);
+  // console.log(sqlPadrao);
+  // await commit();
+
+  //GERAR O MEU SQL PARA MANDAR GRAVAR NO BANCO DE DADOS
+  const sql = `UPDATE TB_ENDERECO SET CODIGO_BAIRRO='${endereco.codigoBairro}', NOME_RUA='${endereco.nomeRua}', NUMERO=${endereco.numero}, CEP='${endereco.cep}', COMPLEMENTO='${endereco.complemento}' WHERE CODIGO_ENDERECO= ${endereco.codigoEndereco}`;
+  //MANDAR EXECUTAR O MEU SQL PARA GRAVAR
+  const resultSet = await conexao.execute(sql);
+  console.log(`sql para ALTERAR endereco: ${sql}`);
+  //VALIDAR SE OS REGISTROS FORAM INSERIDOS OU NÃO
+  console.log(
+    "FORAM INSERIDOS " +
+      resultSet.rowsAffected +
+      " REGISTROS NO BANCO DE DADOS",
+  );
+  if (resultSet.rowsAffected == 0) {
+    await rollback();
+    const jsonRetorno = {
+      status: 404,
+      mensagem: `Nenhum item encontrado com o codigoEndereco:${endereco.codigoEndereco}`,
+    };
+    return response.status(404).json(jsonRetorno);
+  } else {
+    await commit();
+  }
 }
 //#endregion
 
@@ -1969,6 +1985,179 @@ async function adicionarPessoa(request: Request, response: Response) {
 }
 //#endregion
 
+//#region PUT PESSOA
+
+app.put("/pessoa", async (request, response) => {
+  return await modificarPessoa(request, response);
+});
+
+async function modificarPessoa(request: Request, response: Response) {
+  try {
+    //CAPTURAR OS DADOS QUE VIERAM DA REQUISIÇÃO (FORMATO JSON)
+    const ufVo: any = request.body;
+
+    //#region  VERIFICACOES BODY
+    // verificar campos obrigatorios Municipio
+    const camposObrigatorios = await camposObrigatoriosPessoa(
+      ufVo,
+      "put",
+    );
+    if (camposObrigatorios) {
+      return response.status(404).json(camposObrigatorios);
+    }
+
+    await ufVo.enderecos.forEach((endereco: any) => {
+      camposObrigatoriosEndereco(endereco, "put", response);
+    });
+
+    //VERIFICAR IDADE
+    const regexNumero = /^\d+$/;
+    if (!regexNumero.test(ufVo.idade)) {
+      const jsonRetorno = {
+        status: 404,
+        mensagem: "idade deve conter apenas números.",
+      };
+      return response.status(404).json(jsonRetorno);
+    }
+
+    //VERIFICAR SE NOME POSSUI NUMEROS
+    const regex = /^[\p{L}A-Za-z\s]+$/u;
+
+    if (!regex.test(ufVo.nome)) {
+      const jsonRetorno = {
+        status: 404,
+        mensagem: "Nome deve conter apenas letras.",
+      };
+      return response.status(404).json(jsonRetorno);
+    }
+    if (!regex.test(ufVo.sobrenome)) {
+      const jsonRetorno = {
+        status: 404,
+        mensagem: "sobrenome deve conter apenas letras.",
+      };
+      return response.status(404).json(jsonRetorno);
+    }
+
+    //VERIFICAR VALOR DE STATUS
+    if (!(ufVo.status == 1 || ufVo.status == 2)) {
+      const jsonRetorno = {
+        status: 400,
+        mensagem: "Valor inválido para o campo Status.",
+      };
+      return response.status(400).json(jsonRetorno);
+    }
+
+    //VERIFICAR SE CODIGO_bairro EXISTE
+    await ufVo.enderecos.forEach((element: any) => {
+      verificarBairroExiste(element.codigoBairro, response);
+    });
+
+    //VERIFICAR SE POSSUI NUMEROS
+    ufVo.enderecos.forEach((element: any) => {
+      if (!regex.test(element.nomeRua)) {
+        const jsonRetorno = {
+          status: 404,
+          mensagem: "nomeRua deve conter apenas letras.",
+        };
+        return response.status(404).json(jsonRetorno);
+      }
+    });
+
+    ufVo.enderecos.forEach((element: any) => {
+      if (!regex.test(element.complemento)) {
+        const jsonRetorno = {
+          status: 404,
+          mensagem: "complemento deve conter apenas letras.",
+        };
+        return response.status(404).json(jsonRetorno);
+      }
+    });
+
+    //verificar se CEP esta no formato BR
+    const cepRegex = /\b\d{5}-\d{3}\b/;
+    ufVo.enderecos.forEach((element: any) => {
+      if (!cepRegex.test(element.cep)) {
+        const jsonRetorno = {
+          status: 404,
+          mensagem:
+            "cep deve conter apenas numeros e estar no formato brasileiro, exemplo: 12345-678.",
+        };
+        return response.status(404).json(jsonRetorno);
+      }
+    });
+
+    await abrirConexao();
+    const sqlPadrao = `UPDATE TB_PESSOA SET LOGIN='UuuUU.yyay.TRts' WHERE CODIGO_PESSOA= ${ufVo.codigoPessoa}`;
+    await conexao.execute(sqlPadrao);
+    console.log(sqlPadrao);
+    await commit();
+
+    //VERIFICAR SE EXISTE REGISTRO COM MESMO VALOR NO BANCO
+    const itemDuplicado = await verificarLoginDuplicado(ufVo.login);
+    if (itemDuplicado) {
+      return response.status(400).json(itemDuplicado);
+    }
+
+    //#endregion
+
+    //ABRIR A CONEXÃO
+    await abrirConexao();
+    //GERAR O MEU SQL PARA MANDAR GRAVAR NO BANCO DE DADOS
+    const sql = `UPDATE TB_PESSOA SET NOME='${ufVo.nome}', SOBRENOME='${ufVo.sobrenome}', IDADE=${ufVo.idade}, LOGIN='${ufVo.login}', SENHA='${ufVo.senha}', STATUS= ${ufVo.status} WHERE CODIGO_PESSOA=${ufVo.codigoPessoa} `;
+    //MANDAR EXECUTAR O MEU SQL PARA GRAVAR
+    const resultSet = await conexao.execute(sql);
+    console.log(`SQL PARA ALTERAR PESSOA: ${sql}`);
+    //VALIDAR SE OS REGISTROS FORAM INSERIDOS OU NÃO
+    console.log(
+      "FORAM ALTERADOS " +
+        resultSet.rowsAffected +
+        " REGISTROS NO BANCO DE DADOS",
+    );
+    if (resultSet.rowsAffected == 0) {
+      await rollback();
+      const jsonRetorno = {
+        status: 404,
+        mensagem:
+          "Nenhum item encontrado com o codigoPessoa fornecido",
+      };
+      return response.status(404).json(jsonRetorno);
+    }
+    const endAlterar: any = [];
+    const endCriar: any = [];
+
+    ufVo.enderecos.forEach((end: any) => {
+      if (regexNumero.test(end.codigoEndereco)) {
+        endAlterar.push(end);
+      } else {
+        endCriar.push(end);
+      }
+    });
+
+    await endCriar.forEach((e: any) =>
+      adicionarEndereco(ufVo.codigoPessoa, e),
+    );
+    await endAlterar.forEach((e: any) =>
+      alterarEndereco(e, response),
+    );
+
+    //COMMITAR - MANDAR O BANCO GRAVAR REALMENTE O QUE O SQL MANDOU
+    await commit();
+    await consultarPessoa(request, response);
+  } catch (err) {
+    console.log(err);
+    await rollback();
+    const jsonRetorno = {
+      status: 404,
+      mensagem: "Não foi possível alterar Pessoa no banco de dados.",
+    };
+    return response.status(404).json(jsonRetorno);
+  } finally {
+    //FECHAR A CONEXAO
+    await fecharConexao();
+  }
+}
+
+//#endregion
 //#endregion
 app.listen(3333, () => {
   console.log("O SERVIDOR FOI INICIADO COM SUCESSO..");
