@@ -482,6 +482,8 @@ async function adicionarEndereco(codigoPessoa: any, endereco: any) {
       resultSet.rowsAffected +
       " REGISTROS NO BANCO DE DADOS",
   );
+
+  await commit();
 }
 
 async function alterarEndereco(endereco: any, response: Response) {
@@ -894,9 +896,8 @@ async function deletarUF(request: Request, response: Response) {
     }
 
     await abrirConexao();
-    const sql = `DELETE FROM TB_UF WHERE CODIGO_UF= ${codigoUf}`;
-    const sqlMunicipio = `DELETE FROM TB_MUNICIPIO WHERE CODIGO_UF= ${codigoUf}`;
-    await conexao.execute(sqlMunicipio);
+    const sql = `update TB_UF set status=2 where CODIGO_UF= ${codigoUf}`;
+
     const resultSet = await conexao.execute(sql);
     //row = 0 noa editou nada
     if (resultSet.rowsAffected == 0) {
@@ -1281,7 +1282,8 @@ async function deletarMunicipio(
     }
 
     await abrirConexao();
-    const sql = `DELETE FROM TB_MUNICIPIO WHERE CODIGO_MUNICIPIO= ${codigoMunicipio} `;
+    const sql = `update TB_municipio set status=2 where CODIGO_municipio= ${codigoMunicipio}`;
+
     const resultSet = await conexao.execute(sql);
     //row = 0 noa editou nada
     if (resultSet.rowsAffected == 0) {
@@ -1659,7 +1661,8 @@ async function deletarBairro(request: Request, response: Response) {
     }
 
     await abrirConexao();
-    const sql = `DELETE FROM TB_BAIRRO WHERE CODIGO_BAIRRO= ${codigoBairro} `;
+    const sql = `update TB_bairro set status=2 where CODIGO_bairro= ${codigoBairro}`;
+
     const resultSet = await conexao.execute(sql);
     //row = 0 noa editou nada
     if (resultSet.rowsAffected == 0) {
@@ -2156,6 +2159,7 @@ async function modificarPessoa(request: Request, response: Response) {
     await conexao.execute(sqlPadrao);
     console.log(sqlPadrao);
     await commit();
+    await fecharConexao();
 
     //VERIFICAR SE EXISTE REGISTRO COM MESMO VALOR NO BANCO
     const itemDuplicado = await verificarLoginDuplicado(ufVo.login);
@@ -2172,6 +2176,7 @@ async function modificarPessoa(request: Request, response: Response) {
     //MANDAR EXECUTAR O MEU SQL PARA GRAVAR
     const resultSet = await conexao.execute(sql);
     console.log(`SQL PARA ALTERAR PESSOA: ${sql}`);
+    await commit();
     //VALIDAR SE OS REGISTROS FORAM INSERIDOS OU NÃO
     console.log(
       "FORAM ALTERADOS " +
